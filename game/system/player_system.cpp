@@ -71,7 +71,7 @@ namespace game::system
 				if (!coordinator.has_component<engine::component::EffectComponent>(event.entity))
 					return;
 				Entity entity = coordinator.get_component<engine::component::EffectComponent>(event.entity).owner;
-				if (entity_list_.count(entity) == 0)
+				if (coordinator.has_component<game::component::PlayerComponent>(entity) == 0)
 					return;
 				switch_to(PlayerComponent::State::Idle, entity, context);
 			});
@@ -80,7 +80,8 @@ namespace game::system
 	void PlayerSystem::update(double delta, Context& context)
 	{
 		auto& coordinator = context.get_coordinator();
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& player = coordinator.get_component<PlayerComponent>(entity);
 			if (player.state != PlayerComponent::State::Idle)

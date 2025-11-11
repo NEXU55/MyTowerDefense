@@ -6,7 +6,7 @@ namespace engine::component
 {
     struct EffectComponent
     {
-        Timer timer;
+        Timer timer;        //特效计时器
         Entity owner = -1;
     };
 }

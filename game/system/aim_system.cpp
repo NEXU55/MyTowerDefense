@@ -8,6 +8,7 @@
 #include"../../engine/component/transform_component.h"
 #include"../../engine/component/speed_component.h"
 #include"../../engine/component/damage_component.h"
+#include"../../engine//component/collision_component.h"
 #include"../../engine/component/remove_component.h"
 #include"../component/name_component.h"
 
@@ -47,13 +48,12 @@ namespace game::system
 		{
 			if (signature_ != event.type)
 				return;
-			auto& aim = coordinator.get_component<AimComponent>(event.owner);
-			if (aim.targer_enemy_id != event.target)
-				return;
-
+		
 			auto& remove=coordinator.get_component<RemoveComponent>(event.owner);
 			auto& damage = coordinator.get_component<DamageComponent>(event.owner);
+			auto& collision = coordinator.get_component<engine::component::CollisionComponent>(event.owner);
 
+			collision.enabled = false;
 			remove.can_remove = true;
 
 			engine::event::ChangeHpEvent decrease_hp_event;
@@ -82,7 +82,8 @@ namespace game::system
 	void AimSystem::update(double delta, Context& context)
 	{
 		auto& coordinator = context.get_coordinator();
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& physics = coordinator.get_component<PhysicsComponent>(entity);
 			if (physics.is_out_of_bounds)

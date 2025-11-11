@@ -3,7 +3,7 @@
 
 //定义实体类、签名、组件种类、索引
 using Entity = std::uint32_t;
-const Entity MAX_ENTITY = 1024;
+const Entity MAX_ENTITY = 8192;
 using ComponentType = std::uint8_t;
 const ComponentType MAX_COMPONENT = 32;
 using Signature = std::bitset<MAX_COMPONENT>;

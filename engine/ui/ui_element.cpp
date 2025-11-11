@@ -34,17 +34,11 @@ namespace engine::ui
     {
         if (!visible_) return;
         // 遍历所有子节点，并删除标记了移除的元素
-        for (auto it = children_.begin(); it != children_.end();) 
+
+        std::erase_if(children_, [](auto&& e) {return e && e->can_remove();});
+        for (auto it = children_.begin(); it != children_.end();++it) 
         {
-            if (*it && !(*it)->can_remove()) 
-            {
-                (*it)->update(delta, context);
-                ++it;
-            }
-            else 
-            {
-                it = children_.erase(it);
-            }
+            (*it)->update(delta, context);
         }
     }
     void UIElement::render(Context& context) 

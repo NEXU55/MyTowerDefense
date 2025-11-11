@@ -50,7 +50,7 @@ namespace game::system
 		p=event_bus.subscribe<engine::event::AnimationFinishEvent>(
 			[&coordinator , &event_bus, this](const engine::event::AnimationFinishEvent& event)
 			{
-				if (entity_list_.count(event.entity) == 0)
+				if (coordinator.has_component<game::component::TowerComponent>(event.entity) == 0)
 					return;
 				auto& name = coordinator.get_component<game::component::NameComponent>(event.entity);
 
@@ -66,12 +66,12 @@ namespace game::system
 		auto& coordinator = context.get_coordinator();
 		auto& event_bus = context.get_eventbus();
 
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& fire = coordinator.get_component<FireComponent>(entity);
 			fire.can_fire = fire.can_fire||fire.timer_fire.update(delta);
-			if (!fire.can_fire)
-				continue;
+			
 			if (!coordinator.is_entity_valid(fire.target_enemy_id))
 			{
 				fire.target_enemy_id = -1;
@@ -83,12 +83,8 @@ namespace game::system
 			auto& transform = coordinator.get_component<TransformComponent>(entity);
 			auto& transform_target = coordinator.get_component<TransformComponent>(fire.target_enemy_id);
 			auto direction =  transform_target.position-transform.position;
-			if (glm::length(direction) >= fire.range)
-			{
-				fire.target_enemy_id = -1;
-				fire.target_enemy_process = 0;
+			if (!fire.can_fire)
 				continue;
-			}
 			auto& name= coordinator.get_component<NameComponent>(entity);
 			auto& animation= coordinator.get_component<AnimationComponent>(entity);
 			if (abs(direction.x) > abs(direction.y))
@@ -121,6 +117,9 @@ namespace game::system
 
 			event_bus.publish(fire_bullet_event);
 			fire.can_fire = false;
+			fire.timer_fire.reset();
+			fire.target_enemy_id = -1;
+			fire.target_enemy_process = 0;
 		}
 	}
 	void FireSystem::process_collide(const CollisionEvent& event, Context& context)
@@ -129,12 +128,10 @@ namespace game::system
 		Entity target = event.target;
 		auto& coordinator = context.get_coordinator();
 
-		if (coordinator.is_entity_valid(owner)&& coordinator.is_entity_valid(target)==false)
-			return;
 		auto& fire = coordinator.get_component<FireComponent>(owner);
 		auto& enemy = coordinator.get_component<EnemyComponent>(target);
 
-		if (fire.target_enemy_process >= enemy.process)
+		if (fire.target_enemy_process >= enemy.process || !fire.can_fire)
 			return;
 		fire.target_enemy_id = target;
 		fire.target_enemy_process = enemy.process;

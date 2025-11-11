@@ -52,23 +52,33 @@ namespace engine::ui
 
     void UIInteractive::add_sound(std::string_view name, std::string_view path)
     {
-        sounds_.emplace(std::string(name),std::string(path));
+        //sounds_.emplace(std::string(name),std::string(path));
     }
 
     void UIInteractive::play_sound(std::string_view name)
     {
-        auto it = sounds_.find(std::string(name));
+       /* auto it = sounds_.find(std::string(name));
         if (it != sounds_.end())
             context_.get_audio_player().play_sound(it->second);
         else
-            spdlog::error("Sound '{}' 未找到", name);
+            spdlog::error("Sound '{}' 未找到", name);*/
+    }
+
+    void UIInteractive::update(double delta, Context& context)
+    {
+        // 先更新子节点，再更新自己（状态）
+        if (state_ && interactive_)
+        {
+            auto ptr=state_->update(context);
+            if(ptr)
+                set_state(std::move(ptr));
+        }
     }
 
     bool UIInteractive::input(Context& context, const InputEvent& event)
     {
         if (UIElement::input(context,event)) 
             return true;
-
         // 先更新子节点，再更新自己（状态）
         if (state_ && interactive_) 
         {

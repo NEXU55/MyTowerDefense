@@ -22,9 +22,6 @@ namespace engine::core
             process_event();
         }
 
-        //发送一个无任何动作的事件，用于激活由鼠标移动驱动的事件
-        event_bus_.publish(engine::event::InputEvent());
-
         //根据上一帧的值更新默认的动作状态
         for (auto& [action_name, state] : action_states_) 
         {

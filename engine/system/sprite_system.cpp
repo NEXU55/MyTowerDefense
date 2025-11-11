@@ -25,7 +25,8 @@ namespace engine::system
 
 		auto& coordinator = context.get_coordinator();
 		auto& renderer = context.get_renderer();
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& sprite = coordinator.get_component<SpriteComponent>(entity);
 			int index = (int)sprite.layer;

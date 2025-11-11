@@ -5,11 +5,11 @@ namespace engine::component
 {
 	struct Timer
 	{
-		bool one_shot_ = false;
-		bool shotted_ = false;
-		bool paused_ = false;
-		double wait_time_ = 0;
-		double pass_time_ = 0;
+		bool one_shot_ = false;					//是否为单次触发
+		bool shotted_ = false;					//是否触发
+		bool paused_ = false;					//暂停
+		double wait_time_ = 0;					//等待时间
+		double pass_time_ = 0;					//已过时间
 
 		void pause() { paused_ = true; }
 		void resume() { paused_ = false; }

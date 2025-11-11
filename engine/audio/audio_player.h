@@ -54,44 +54,44 @@ namespace engine::audio
         bool play_music(std::string_view name, int loops = -1, int fade_in_ms = 0);
 
         /**
-         * @brief 停止当前正在播放的背景音乐。
-         * @param fade_out_ms 淡出时间（毫秒）（0 表示立即停止）。默认为 0。
+         * 停止当前正在播放的背景音乐。
+         * fade_out_ms 淡出时间（毫秒）（0 表示立即停止）。默认为 0。
          */
         void stop_music(int fade_out_ms = 0);
 
         /**
-         * @brief 暂停当前正在播放的背景音乐。
+         * 暂停当前正在播放的背景音乐。
          */
         void pause_music();
 
         /**
-         * @brief 恢复已暂停的背景音乐。
+         * 恢复已暂停的背景音乐。
          */
         void resume_music();
 
         /**
-         * @brief 设置音效通道的音量。
-         * @param volume 音量级别（0.0-1.0）。
-         * @param channel 通道号（-1 表示所有通道）。默认为 -1。
+         * 设置音效通道的音量。
+         * volume 音量级别（0.0-1.0）。
+         * channel 通道号（-1 表示所有通道）。默认为 -1。
          */
         void set_sound_volume(float volume, int channel = -1);
 
         /**
-         * @brief 设置音乐通道的音量。
-         * @param volume 音量级别（0.0-1.0）。
+         * 设置音乐通道的音量。
+         * volume 音量级别（0.0-1.0）。
          */
         void set_music_volume(float volume);
 
         /**
-         * @brief 获取当前音乐音量。
-         * @return 音量级别（0.0-1.0）。
+         * 获取当前音乐音量。
+         * 音量级别（0.0-1.0）。
          */
         float get_music_volume();
 
         /**
-         * @brief 获取当前音效音量。
-         * @param channel 通道号（-1 表示所有通道）。默认为 -1。
-         * @return 音量级别（0.0-1.0）。
+         * 获取当前音效音量。
+         * channel 通道号（-1 表示所有通道）。默认为 -1。
+         * 音量级别（0.0-1.0）。
          */
         float get_sound_volume(int channel = -1);
 

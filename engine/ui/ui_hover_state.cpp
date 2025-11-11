@@ -20,12 +20,17 @@ void UIHoverState::exit()
     owner_->unhovered();
 }
 
-std::unique_ptr<UIState> UIHoverState::input(Context& context, const InputEvent& event)
+std::unique_ptr<UIState> UIHoverState::update(Context& context)
 {
     auto& input_manager = context.get_input_manager();
     auto mouse_pos = input_manager.get_mouse_position();
     if (!owner_->is_point_inside(mouse_pos))// 如果鼠标不在UI元素内，则返回正常状态
         return std::make_unique<UINormalState>(owner_);
+    return nullptr;
+}
+
+std::unique_ptr<UIState> UIHoverState::input(Context& context, const InputEvent& event)
+{
     if (event.message == "MouseLeftClick"&&event.state==ActionState::PRESSED_THIS_FRAME)// 如果鼠标按下，则返回按下状态
         return std::make_unique<UIPressedState>(owner_);
     return nullptr;

@@ -82,6 +82,16 @@ namespace engine::component
 			return get_component_array<T>()->get_size();
 		}
 
+		size_t get_component_size_by_index(ComponentType index)
+		{
+			return components_list_[index]->get_size();
+		}
+
+		std::vector<Entity> get_entity_array_by_index(ComponentType index)
+		{
+			return components_list_[index]->get_entity_array();
+		}
+
 		void clear()
 		{
 			for (int i=0;i< component_type_list_.size();++i)
@@ -89,7 +99,7 @@ namespace engine::component
 				components_list_[i]->clear();
 			}
 		}
-	private:
+	public:
 		template<class T>
 		ComponentArray<T>* get_component_array()
 		{

@@ -71,6 +71,8 @@ namespace engine::entity
 			entity_array_[last_index].reset();
 			version_array_[last_index] = -1;
 			--size_;
+
+			available_entity_list_.push(entity);
 		}
 
 		void set_signautre(Entity entity, Signature signature)
@@ -86,6 +88,8 @@ namespace engine::entity
 
 		Signature get_signature(Entity entity) 
 		{
+			if(entity==-1)
+				return Signature();
 			Index index = index_array_[entity];
 			if (index == -1)
 			{

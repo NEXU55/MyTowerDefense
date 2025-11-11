@@ -6,7 +6,7 @@ namespace engine::event
 {
 	struct InputEvent
 	{
-		std::string message;
-		ActionState state = ActionState::INACTIVE;
+		std::string message;						//消息
+		ActionState state = ActionState::INACTIVE;	//状态
 	};
 }

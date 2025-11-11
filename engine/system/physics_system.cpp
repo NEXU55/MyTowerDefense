@@ -23,7 +23,8 @@ namespace engine::system
 	{
 		auto& coordinator = context.get_coordinator();
 		const auto& window = context.get_config().config_.basic.window;
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& physics = coordinator.get_component<PhysicsComponent>(entity);
 			auto& transform = coordinator.get_component<TransformComponent>(entity);

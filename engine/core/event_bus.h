@@ -4,6 +4,8 @@
 #include <type_traits>
 #include <memory>
 #include <unordered_map>
+#include<typeinfo>
+#include<spdlog/spdlog.h>
 
 namespace engine::core
 {
@@ -39,6 +41,7 @@ namespace engine::core
 			_slots<Type>().emplace_back(
 				std::pair{ std::weak_ptr<void>(token), std::move(fn) });
 
+			spdlog::trace("订阅事件类型{}", typeid(T).name());
 			return token;
 		}
 

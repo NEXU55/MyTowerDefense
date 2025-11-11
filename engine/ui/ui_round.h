@@ -17,5 +17,7 @@ namespace engine::ui
         UIRound(glm::dvec2 position, SDL_Color color,double range);
         // --- 核心方法 ---
         void render(engine::core::Context& context) override;
+
+        void set_range(double range) { range_=range; }
     };
 }

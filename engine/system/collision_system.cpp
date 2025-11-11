@@ -7,6 +7,7 @@
 #include"../component/collision_component.h"
 
 #include <glm/geometric.hpp>
+#include<deque>
 
 namespace engine::system
 {
@@ -24,127 +25,163 @@ namespace engine::system
 	{
 		auto& coordinator = context.get_coordinator();
 		auto& event_bus = context.get_eventbus();
+		int n = coordinator.get_component_size<engine::component::CollisionComponent>();
+		std::vector<int> v;
+		std::deque<int> q;
+		std::vector<std::pair<int,int>> result;
+		v.reserve(n);
 
-		for (auto entity_src : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		auto collision_list_ptr = coordinator.get_component_array<engine::component::CollisionComponent>();
+		if (!collision_list_ptr)
 		{
-			auto& collision_box_src = coordinator.get_component<CollisionComponent>(entity_src);
-			auto& position_src = coordinator.get_component<TransformComponent>(entity_src).position;
-			if (collision_box_src.enabled == false)
-					continue;
-			for (auto entity_dst : entity_list_)
+			spdlog::error("碰撞系统无法使用");
+			return;
+		}
+		auto& collision_list = collision_list_ptr->get_component_array();
+		auto size = collision_list_ptr->get_size();
+
+		/*for (int i = 0; i < size; ++i)
+		{
+			if (collision_list[i].enabled == false)
+				continue;
+			const auto& position = coordinator.get_component<TransformComponent>(collision_list[i].owner).position;
+			double width = 0.0, height = 0.0;
+			std::visit([&width, &height](auto&& arg)
+				{
+					using T = std::decay_t<decltype(arg)>;
+					if constexpr (std::is_same_v<T, double>)
+						width = height = arg;
+					else if constexpr (std::is_same_v<T, glm::dvec2>)
+					{
+						width = arg.x / 2;
+						height = arg.y / 2;
+					}
+				}, collision_list[i].size);
+			collision_list[i].rect = { position.x - width,position.x + width,position.y - height,position.y + height };
+		}
+		for (int i = 0; i < size; ++i)
+		{
+			if (collision_list[i].enabled == false)
+				continue;
+			for (int j = 0; j < size; ++j)
 			{
-				auto& collision_box_dst = coordinator.get_component<CollisionComponent>(entity_dst);
-				auto& position_dst = coordinator.get_component<TransformComponent>(entity_dst).position;
-				if (collision_box_dst.enabled == false || entity_src==entity_dst || (collision_box_src.collision_mask & collision_box_dst.layer) == 0)
-						continue;
-				if (!is_collide(collision_box_src, collision_box_dst, position_src, position_dst))
+				if (collision_list[j].enabled == false)
 					continue;
-				CollisionEvent event;
-				event.owner = collision_box_src.owner;
-				event.target = collision_box_dst.owner;
-				event.type = collision_box_src.event_type;
-				event_bus.publish(event);
+				const auto& collision_box1 = collision_list[i];
+				const auto& collision_box2 = collision_list[j];
+
+				bool need_to_publish_event1 = (collision_box1.collision_mask & collision_box2.layer) != 0;
+				bool need_to_publish_event2 = (collision_box2.collision_mask & collision_box1.layer) != 0;
+
+				if ((!need_to_publish_event1 && !need_to_publish_event2) || !is_collide(collision_box1, collision_box2))
+					continue;
+				if (need_to_publish_event1)
+					result.emplace_back(i, j);
+				if (need_to_publish_event2)
+					result.emplace_back(j, i);
 			}
+		}*/
+
+		for (int i=0;i<size;++i)
+		{
+			if (collision_list[i].enabled == false)
+				continue;
+			const auto& position = coordinator.get_component<TransformComponent>(collision_list[i].owner).position;
+			double width = 0.0,height=0.0;
+			std::visit([&width,&height](auto&& arg)
+				{
+					using T = std::decay_t<decltype(arg)>;
+					if constexpr (std::is_same_v<T, double>)
+						width=height = arg;
+					else if constexpr (std::is_same_v<T, glm::dvec2>)
+					{
+						width = arg.x / 2;
+						height = arg.y/2;
+					}
+				}, collision_list[i].size);
+			collision_list[i].rect = { position.x - width,position.x + width,position.y - height,position.y + height };
+			v.emplace_back(i);
+		}
+
+		std::sort(v.begin(), v.end(),
+			[&collision_list,this](int a, const int b)
+			{return model?collision_list[a].rect.left < collision_list[b].rect.left: collision_list[a].rect.up < collision_list[b].rect.up; });
+
+		for (auto e1 : v)
+		{
+			while (true)
+			{
+				if (!q.empty() && (model?collision_list[q.front()].rect.right < collision_list[e1].rect.left: 
+					collision_list[q.front()].rect.down < collision_list[e1].rect.up))
+					q.pop_front();
+				else
+					break;
+			};
+			for (auto e2 : q)
+			{
+				const auto& collision_box1 = collision_list[e1];
+				const auto& collision_box2 = collision_list[e2];
+
+				bool need_to_publish_event1 = (collision_box1.collision_mask & collision_box2.layer) != 0;
+				bool need_to_publish_event2 = (collision_box2.collision_mask & collision_box1.layer) != 0;
+
+				if ((!need_to_publish_event1 && !need_to_publish_event2)||!is_collide(collision_box1, collision_box2))
+					continue;
+				if (need_to_publish_event1)
+					result.emplace_back(e1, e2);
+				if (need_to_publish_event2)
+					result.emplace_back(e2, e1);
+			}
+			q.emplace_back(e1);
+		}
+
+		for (const auto& [e1, e2] : result)
+		{
+			const auto& collision_box1 = collision_list[e1];
+			const auto& collision_box2 = collision_list[e2];
+			if (!collision_box1.enabled || !collision_box2.enabled)
+				continue;
+			engine::event::CollisionEvent event;
+			event.owner = collision_box1.owner;
+			event.target = collision_box2.owner;
+			event.type = collision_box1.event_type;
+			event_bus.publish(event);
 		}
 	}
-	bool CollisionSystem::is_collide(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b) const
+
+	bool CollisionSystem::is_collide(const CollisionComponent& a, const CollisionComponent& b) const
 	{
 		if (a.type == CollisionBoxType::Rec)
 		{
 			if (b.type == CollisionBoxType::Rec)
-				return check_rec_rec(a, b, pos_a, pos_b);
+				return check_rec_rec(a, b);
 			else if (b.type == CollisionBoxType::Cir)
-				return check_rec_cir(a, b, pos_a, pos_b);
+				return check_rec_cir(a, b);
 		}
 		else if (a.type == CollisionBoxType::Cir)
 		{
 			if (b.type == CollisionBoxType::Rec)
-				return check_cir_rec(a, b, pos_a, pos_b);
+				return check_cir_rec(a, b);
 			else if (b.type == CollisionBoxType::Cir)
-				return check_cir_cir(a, b, pos_a, pos_b);
+				return check_cir_cir(a, b);
 		}
 		return false;
 	}
-	bool CollisionSystem::check_rec_rec(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b) const
+	bool CollisionSystem::check_rec_rec(const CollisionComponent& a, const CollisionComponent& b) const
 	{
-		glm::dvec2 size_a{0,0};
-		glm::dvec2 size_b{0,0};
-		bool useable = true;
-
-		std::visit([&size_a, &useable](auto&& arg)
-			{
-				using T = std::decay_t<decltype(arg)>;
-				if constexpr (std::is_same_v<T, glm::dvec2>)
-					size_a = arg;
-				else if constexpr (std::is_same_v<T, double>)
-					useable = false;
-			}, a.size);
-		std::visit([&size_b, &useable](auto&& arg)
-			{
-				using T = std::decay_t<decltype(arg)>;
-				if constexpr (std::is_same_v<T, glm::dvec2>)
-					size_b = arg;
-				else if constexpr (std::is_same_v<T, double>)
-					useable = false;
-			}, b.size);
-		if (!useable)
-			return false;
-
-		return std::max(pos_a.x + size_a.x / 2, pos_b.x + size_b.x / 2) - std::min(pos_a.x - size_a.x / 2, pos_b.x - size_b.x / 2) < size_a.x + size_b.x
-			&& std::max(pos_a.y + size_a.y / 2, pos_b.y + size_b.y / 2) - std::min(pos_a.y - size_a.y / 2, pos_b.y - size_b.y / 2) < size_a.y + size_b.y;
+		return model ? 
+			std::max(a.rect.down,b.rect.down) - std::min(a.rect.up, b.rect.up) < a.rect.down+b.rect.down-b.rect.up-a.rect.up:
+			std::max(a.rect.right, b.rect.right) - std::min(a.rect.left, b.rect.left) < a.rect.right + b.rect.right - b.rect.left - a.rect.left;
 	}
-	bool CollisionSystem::check_cir_cir(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b) const
+	bool CollisionSystem::check_cir_cir(const CollisionComponent& a, const CollisionComponent& b) const
 	{
-		double range_a = 0;
-		double range_b = 0;
-		bool useable = true;
-
-		std::visit([&range_a, &useable](auto&& arg)
-			{
-				using T = std::decay_t<decltype(arg)>;
-				if constexpr (std::is_same_v<T, double>)
-					range_a = arg;
-				else if constexpr (std::is_same_v<T, glm::dvec2>)
-					useable = false;
-			}, a.size);
-		std::visit([&range_b, &useable](auto&& arg)
-			{
-				using T = std::decay_t<decltype(arg)>;
-				if constexpr (std::is_same_v<T, double >)
-					range_b = arg;
-				else if constexpr (std::is_same_v<T, glm::dvec2>)
-					useable = false;
-			}, b.size);
-		if (!useable)
-			return false;
-
-		return glm::length(pos_a - pos_b) < range_a + range_b;
+		return glm::length(glm::dvec2{a.rect.right-a.rect.left+b.rect.left-b.rect.right,a.rect.down - a.rect.up + b.rect.up - b.rect.down }) <
+			2*(a.rect.right - a.rect.left + b.rect.right - b.rect.left);
 	}
-	bool CollisionSystem::check_cir_rec(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b) const
+	bool CollisionSystem::check_cir_rec(const CollisionComponent& a, const CollisionComponent& b) const
 	{
-		double range_a = 0;
-		glm::dvec2 size_b;
-		bool useable = true;
-
-		std::visit([&range_a, &useable](auto&& arg)
-			{
-				using T = std::decay_t<decltype(arg)>;
-				if constexpr (std::is_same_v<T, double>)
-					range_a = arg;
-				else if constexpr (std::is_same_v<T, glm::dvec2>)
-					useable = false;
-			}, a.size);
-		std::visit([&size_b, &useable](auto&& arg)
-			{
-				using T = std::decay_t<decltype(arg)>;
-				if constexpr (std::is_same_v<T, glm::dvec2>)
-					size_b = arg;
-				else if constexpr (std::is_same_v<T, double>)
-					useable = false;
-			}, b.size);
-		if (!useable)
-			return false;
-
-		return checkCircleRectangleCollision(pos_a.x, pos_a.y, range_a, pos_b.x-size_b.x/2, pos_b.y-size_b.y/2, size_b.x, size_b.y);
+		double range_a = (a.rect.right-a.rect.left)/2;
+		return checkCircleRectangleCollision((a.rect.right + a.rect.left) / 2, (a.rect.down + a.rect.up) / 2, range_a,b.rect.left,b.rect.right,b.rect.up,b.rect.down);
 	}
 }

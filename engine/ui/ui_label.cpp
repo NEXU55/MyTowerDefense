@@ -23,7 +23,7 @@ namespace engine::ui {
 
     void UILabel::render(engine::core::Context& context) 
     {
-        if (!visible_ || text_.empty()) 
+        if (!visible_ || text_.empty())
             return;
         text_renderer_.draw_ui_text(text_, font_id_, font_size_, get_screen_position(), text_fcolor_);
         // 渲染子元素（调用基类方法）

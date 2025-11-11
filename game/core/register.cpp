@@ -59,19 +59,20 @@ namespace game::core
 		coordinator.register_component_singleton<HomeComponent>();
 		coordinator.register_component_singleton<MapComponent>();
 		coordinator.register_component<EnemyComponent>();
-		coordinator.register_component<TowerComponent>(64);
-		coordinator.register_component<FireComponent>(64);
-		coordinator.register_component<BulletComponent>(512);
-		coordinator.register_component<AimComponent>(512);
+		coordinator.register_component<TowerComponent>(256);
+		coordinator.register_component<FireComponent>(256);
+		coordinator.register_component<BulletComponent>(2048);
+		coordinator.register_component<AimComponent>(2048);
 		coordinator.register_component<PlayerComponent>(1);
-		coordinator.register_component<game::component::NameComponent>(128);
+		coordinator.register_component<game::component::NameComponent>();
 
+		remove_system_ = coordinator.register_system<RemoveSystem>();
 		sprite_system_=coordinator.register_system<SpriteSystem>();
 		sound_system_ = coordinator.register_system<SoundSystem>();
 		animation_system_=coordinator.register_system<AnimationSystem>();
 		physics_system_ = coordinator.register_system<PhysicsSystem>();
 		collision_system_ = coordinator.register_system<CollisionSystem>();
-		remove_system_ = coordinator.register_system<RemoveSystem>();
+		
 		rotate_system_ = coordinator.register_system<RotateSystem>();
 		effect_system_ = coordinator.register_system<EffectSystem>();
 
@@ -80,18 +81,21 @@ namespace game::core
 		fire_system_= coordinator.register_system<FireSystem>();
 		player_system_ = coordinator.register_system<PlayerSystem>();
 
+		remove_system_->init(context);
+		
+		physics_system_->init(context);
+		rotate_system_->init(context);
+		collision_system_->init(context);
+
 		sprite_system_->init(context);
 		sound_system_->init(context);
 		animation_system_->init(context);
-		physics_system_->init(context);
-		collision_system_->init(context);
-		remove_system_->init(context);
-		rotate_system_->init(context);
+		
 		effect_system_->init(context);
 
-		enemy_system_->init(context);
 		aim_system_->init(context);
 		fire_system_->init(context);
+		enemy_system_->init(context);
 		player_system_->init(context);
 	}
 

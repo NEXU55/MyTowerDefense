@@ -36,14 +36,14 @@ namespace engine::render {
         glm::dvec2 size{0,0};
         TTF_Font* font = resource_manager_->get_font(font_id, font_size);
         if (!font) {
-            spdlog::warn("get_text_Size 获取字体失败: {} 大小 {}", font_id, font_size);
+            spdlog::warn("get_text_size 获取字体失败: {} 大小 {}", font_id, font_size);
             return size;
         }
         // 创建表面
         SDL_Surface* text_surface = TTF_RenderText_Blended(font, text.data(), {0,0,0,0});
         if (!text_surface)
         {
-            spdlog::error("draw_ui_text 创建 text_surface 失败: {}", SDL_GetError());
+            spdlog::error("get_text_size 创建 text_surface 失败: {}", SDL_GetError());
             return size;
         }
         size = { text_surface->w, text_surface->h };

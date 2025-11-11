@@ -16,6 +16,8 @@ namespace engine::resource
 		std::string_view get(std::string_view type, std::string_view name)
 		{
 			auto& pool = audio_set_pool_[type.data()][name.data()];
+			if (pool.empty())
+				return "";
 			int index = rand() % pool.size();
 			return pool[index];
 		}

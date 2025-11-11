@@ -23,7 +23,8 @@ namespace engine::system
 	void RotateSystem::update(double delta, Context& context)
 	{
 		auto& coordinator = context.get_coordinator();
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& rotate = coordinator.get_component<RotateComponent>(entity);
 			if (!rotate.can_rotated)

@@ -42,7 +42,7 @@ namespace engine::system
 		p=event_bus.subscribe<engine::event::AnimationFinishEvent>(
 			[&coordinator, &event_bus, this](const engine::event::AnimationFinishEvent& event)
 			{
-				if (entity_list_.count(event.entity) == 0)
+				if (coordinator.has_component<engine::component::EffectComponent>(event.entity) == 0)
 					return;
 				auto& remove = coordinator.get_component<RemoveComponent>(event.entity);
 				remove.can_remove = true;
@@ -52,7 +52,8 @@ namespace engine::system
 	void EffectSystem::update(double delta, Context& context)
 	{
 		auto& coordinator = context.get_coordinator();
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& effect = coordinator.get_component<EffectComponent>(entity);
 			auto& damage = coordinator.get_component<engine::component::DamageComponent>(entity);

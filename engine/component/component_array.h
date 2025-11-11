@@ -1,17 +1,36 @@
 ﻿#pragma once
 #include"../core/type.h"
 #include<vector>
+#include<typeinfo>
 #include<spdlog/spdlog.h>
 
 namespace engine::component
 {
 	class BaseComponentArray
 	{
+	protected:
+		size_t size_ = 0;
+		std::uint32_t capacity_ = 0;
+		std::vector<Index> index_array_;//稀疏数组，索引为entity,存储组件的index
+		std::vector<Entity> entity_array_;//用于删除时更新稀疏数组
 	public:
 		BaseComponentArray() = default;
+		BaseComponentArray(std::uint32_t capacity)
+			:capacity_(capacity)
+		{}
 		virtual ~BaseComponentArray() = default;
 		virtual void destroy_entity(Entity) = 0;
 		virtual void clear(){}
+
+		size_t get_size()const
+		{
+			return size_;
+		}
+
+		std::vector<Entity> get_entity_array()
+		{
+			return entity_array_;
+		}
 	};
 
 	template<class T>
@@ -19,14 +38,10 @@ namespace engine::component
 	{
 	private:
 		T fault_;
-		size_t size_ = 0;
-		std::uint32_t capacity_ = 0;
-		std::vector<Index> index_array_;//稀疏数组，索引为entity,存储组件的index
 		std::vector<T> component_array_;//密集数组，存储组件
-		std::vector<Entity> entity_array_;//用于删除时更新稀疏数组
 	public:
 		ComponentArray(std::uint32_t capacity)
-			:capacity_(capacity)
+			:BaseComponentArray(capacity)
 		{
 			index_array_.resize(MAX_ENTITY, -1);
 			component_array_.resize(capacity);
@@ -37,7 +52,7 @@ namespace engine::component
 		{
 			if (size_ >= capacity_)
 			{
-				spdlog::warn("组件列表已满，无法插入组件");
+				spdlog::warn("{}组件列表已满，无法插入组件",typeid(T).name());
 				return;
 			}
 			Index index = size_;
@@ -45,6 +60,7 @@ namespace engine::component
 			entity_array_[index] = entity;
 			component_array_[index] = component;
 			++size_;
+			spdlog::trace("{}组件列表大小为{}", typeid(T).name(),size_);
 		}
 
 		void remove(Entity entity)
@@ -106,9 +122,9 @@ namespace engine::component
 				remove(entity);
 		}
 
-		size_t get_size()const
+		std::vector<T>& get_component_array()
 		{
-			return size_;
+			return component_array_;
 		}
 	};
 }

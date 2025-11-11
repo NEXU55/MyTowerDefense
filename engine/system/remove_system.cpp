@@ -43,7 +43,8 @@ namespace engine::system
 		std::vector<Entity> remove_list;
 
 		auto& coordinator = context.get_coordinator();
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& remove = coordinator.get_component<RemoveComponent>(entity);
 			if (remove.can_remove)

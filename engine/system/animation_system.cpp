@@ -34,7 +34,8 @@ namespace engine::system
 	void AnimationSystem::update(double delta,Context& context)
 	{
 		auto& coordinator = context.get_coordinator();
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& animation = coordinator.get_component<AnimationComponent>(entity);
 			animation.pass_time += delta;

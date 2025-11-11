@@ -17,6 +17,10 @@ public:
 
 private:
     void enter() override;
-    std::unique_ptr<UIState> input(Context& context, const InputEvent& event) override;
+    std::unique_ptr<UIState> update(Context& context) override;
+    std::unique_ptr<UIState> input(Context& context, const InputEvent& event) override
+    {
+        return nullptr;
+    }
 };
 }

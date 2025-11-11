@@ -19,7 +19,12 @@
 #include"../../engine/ui/ui_rounded_box.h"
 #include"../../engine/ui/ui_round.h"
 #include"../../engine/ui/ui_element.h"
+#include"../component/enemy_component.h"
+#include"../../engine/component/transform_component.h"
+#include"../../engine/component/health_component.h"
 
+#include"../../engine/system/physics_system.h"
+#include"../../engine/system/collision_system.h"
 #include"../../engine/system/animation_system.h"
 #include"../../engine/system/remove_system.h"
 #include"../../engine/system/rotate_system.h"
@@ -34,8 +39,7 @@
 #include"../event/create_player_event.h"
 #include"../event/enemy_enter_home_event.h"
 #include"../event/player_mp_event.h"
-#include"../event/enemy_hp_event.h"
-#include"../event/reward_event.h"
+#include"../../engine/event/change_hp_event.h"
 #include"../object/enemy_type.h"
 
 #include<spdlog/spdlog.h>
@@ -68,13 +72,12 @@ namespace game::scene
 				auto it = enemy_hp_bars_.find(event.entity);
 				if (it != enemy_hp_bars_.end())
 				{
-					it->second.first->set_can_remove(true);
-					it->second.second->set_can_remove(true);
+					it->second->set_can_remove(true);
 					enemy_hp_bars_.erase(it);
 				}
 
-				if (--current_health_>=0)
-					update_health_ui();
+				--current_health_;
+				update_health_ui();
 				if(current_health_ <= 0)
 				{
 					context_.is_game_win_ = false;
@@ -82,7 +85,6 @@ namespace game::scene
 					switch_game_state_event.state = engine::core::GameState::GameOver;
 					switch_game_state_event.action = "push";
 					event_bus.publish(switch_game_state_event);
-					return;
 				}
 			}
 		);
@@ -94,30 +96,37 @@ namespace game::scene
 				update_status_bar_ui();
 			});
 
-		subscribe_event<game::event::EnemyHpEvent>(
-			[this](const game::event::EnemyHpEvent& event)
+		subscribe_event<engine::event::ChangeHpEvent>(
+			[this](const engine::event::ChangeHpEvent& event)
 			{
+				auto& coordinator = context_.get_coordinator();
+				if (coordinator.has_component<game::component::EnemyComponent>(event.entity) == false)
+					return;
+				
+				const auto& health= coordinator.get_component<engine::component::HealthComponent>(event.entity);
+				const  auto& transform= coordinator.get_component<engine::component::TransformComponent>(event.entity);
+
 				auto it = enemy_hp_bars_.find(event.entity);
-				if (event.process == 1 || event.process <= 0)
+				if (health.hp_max<=health.hp||health.hp==0)
 				{
+					if (health.hp == 0)
+					{
+						const auto& enemy = coordinator.get_component<game::component::EnemyComponent>(event.entity);
+						current_coin_ += enemy.reward;
+						update_coin_ui();
+					}
+
 					if(it==enemy_hp_bars_.end())
 						return;
-					it->second.first->set_can_remove(true);
-					it->second.second->set_can_remove(true);
+					it->second->set_can_remove(true);
 					enemy_hp_bars_.erase(it);
 					return;
 				}
 				if (it == enemy_hp_bars_.end())
-					create_enemy_ui(event.entity,event.position);
-				else
-					update_enemy_ui(event.entity, event.position, event.process);
-			});
-
-		subscribe_event<game::event::RewardEvent>(
-			[this](const game::event::RewardEvent& event)
-			{
-				current_coin_ += event.reward;
-				update_coin_ui();
+					create_enemy_ui(event.entity,transform.position);
+				auto size = glm::dvec2{ width_enemy_hp_bar_ * health.hp/health.hp_max , height_enemy_hp_bar_ };
+				auto& v = enemy_hp_bars_[event.entity]->get_children();
+				v.back()->set_size(size);
 			});
 	}
 
@@ -129,6 +138,7 @@ namespace game::scene
 
 		if (event.message == "MouseLeftClick"&&event.state==ActionState::PRESSED_THIS_FRAME)
 		{
+			//如果轮盘已经存在则移除
 			if (tower_panel_)
 			{
 				tower_panel_->set_can_remove(true);
@@ -155,20 +165,25 @@ namespace game::scene
 
 	void GameScene::update(double delta)
 	{	
-		object_manager_->update(delta);
-		wave_manager_->update(delta);
-
-		player_system_->update(delta, context_);//玩家状态更新
 		
-		fire_system_->update(delta, context_);//防御塔索敌开火
-		aim_system_->update(delta, context_);//子弹瞄准敌人
-		effect_system_->update(delta, context_);//特效攻击伤害计算
-		enemy_system_->update(delta, context_,*wave_manager_);//敌人受击
-		rotate_system_->update(delta, context_);//旋转
-		remove_system_->update(delta, context_);//去除
+		wave_manager_->update(delta);							//发布生成事件
+
+		enemy_system_->update(delta, context_,*wave_manager_);	//敌人位置修正
+		player_system_->update(delta, context_);				//玩家状态更新
+		fire_system_->update(delta, context_);					//防御塔索敌开火
+		object_manager_->update(delta);
+		aim_system_->update(delta, context_);					//子弹瞄准敌人
+		effect_system_->update(delta, context_);				//特效攻击伤害计算
+		rotate_system_->update(delta, context_);				//旋转
+		physics_system_->update(delta, context_);				//移动
+		collision_system_->update(delta, context_);				//碰撞
+		remove_system_->update(delta, context_);				//去除
+		
+		animation_system_->update(delta, context_);//更新帧序列
 
 		Scene::update(delta);
-		animation_system_->update(delta, context_);//更新帧序列
+		update_enemy_ui();
+		update_fps_ui(delta);
 	}
 
 	void GameScene::clear()
@@ -224,14 +239,16 @@ namespace game::scene
 		remove_system_ = coordinator.register_system<RemoveSystem>();
 		rotate_system_ = coordinator.register_system<RotateSystem>();
 		animation_system_ = coordinator.register_system<AnimationSystem>();
-		enemy_system_ = coordinator.register_system<EnemySystem>();
 		aim_system_ = coordinator.register_system<AimSystem>();
 		fire_system_ = coordinator.register_system<FireSystem>();
+		enemy_system_ = coordinator.register_system<EnemySystem>();
 		effect_system_ = coordinator.register_system<EffectSystem>();
 		player_system_ = coordinator.register_system<PlayerSystem>();
+		physics_system_ = context_.get_coordinator().register_system<PhysicsSystem>();
+		collision_system_ = context_.get_coordinator().register_system<CollisionSystem>();
 
 		return remove_system_ && rotate_system_ && animation_system_ && enemy_system_ 
-			&& aim_system_ &&fire_system_ && effect_system_ &&player_system_;
+			&& aim_system_ &&fire_system_ && effect_system_ &&player_system_&& physics_system_&&collision_system_;
 	}
 
 	bool GameScene::init_ui()
@@ -243,6 +260,8 @@ namespace game::scene
 		create_health_ui();
 		create_coin_ui();
 		create_player_ui();
+		create_fps_ui();
+
 		return true;
 	}
 
@@ -324,61 +343,93 @@ namespace game::scene
 		ui_manager_->add_element(std::move(status_bar_background));
 		ui_manager_->add_element(std::move(status_bar_foreground));
 	}
+	void GameScene::create_fps_ui()
+	{
+		std::string fps_text = "FPS:"+std::to_string(fps_);
+		auto position_fps_text = glm::dvec2{ 0, 670 };
+		auto fps_label = std::make_unique<engine::ui::UILabel>(context_.get_text_renderer(), fps_text, "resources/font/ipix.ttf", 28, position_fps_text);
+		fps_label_ = fps_label.get();
+		
+		std::string enemy_text = "enemy count:" + std::to_string(0);
+		auto position_enemy_text = glm::dvec2{ 900, 0 };
+		auto enemy_label = std::make_unique<engine::ui::UILabel>(context_.get_text_renderer(), enemy_text, "resources/font/ipix.ttf", 28, position_enemy_text);
+		enemy_label_ = enemy_label.get();
+
+		ui_manager_->add_element(std::move(fps_label));
+		ui_manager_->add_element(std::move(enemy_label));
+	}
+
 	void GameScene::update_coin_ui()
 	{
-		std::string coin_num_text = std::to_string(current_coin_);
-		coin_label_->set_text(coin_num_text);
+		coin_label_->set_text(std::to_string(current_coin_));
 	}
 	void GameScene::update_health_ui()
 	{
-		health_panel_->remove_child(health_panel_->get_children().back().get());
+		health_panel_->get_children().back()->set_can_remove(true);
 	}
 	void GameScene::update_status_bar_ui()
 	{
 		status_bar_foreground_->set_size({ width_mp_bar_ *current_status_bar_process_,height_mp_bar_ });
 	}
+	void GameScene::update_fps_ui(double delta)
+	{
+		enemy_label_->set_text("enemy count:" + std::to_string(object_manager_->count_enemy()));
+
+		second_ += delta;
+		++fps_;
+		if (second_ >= 1.0)
+		{
+			fps_label_->set_text("FPS:" + std::to_string(fps_));
+			second_ = 0;
+			fps_ = 0;
+		}
+	}
 	void GameScene::create_enemy_ui(Entity entity, const glm::dvec2& position)
 	{
 		auto size = glm::dvec2{width_enemy_hp_bar_ , height_enemy_hp_bar_};
-		auto enemy_hp_bar_position = position + glm::dvec2{ 0 - width_enemy_hp_bar_ / 2,-24 - height_enemy_hp_bar_ / 2 };
+		auto enemy_hp_bar_position = ui_manager_->get_root_element()->get_position()+position + glm::dvec2{ 0 - width_enemy_hp_bar_ / 2,-24 - height_enemy_hp_bar_ / 2 };
 		const SDL_Color color_border{226,225,194,255 };
 		const SDL_Color color_content{116,185,124,255 };
 
-		auto enemy_hp_bar_border = std::make_unique<engine::ui::UIRounderBox>
-			(enemy_hp_bar_position, size, color_border, 1);
-		auto enemy_hp_bar_content= std::make_unique<engine::ui::UIRounderBox>
-			(enemy_hp_bar_position, size, color_content, 1);
-		enemy_hp_bars_[entity] = { enemy_hp_bar_border.get(),enemy_hp_bar_content.get()};
+		auto enemy_hp_bar_panel = std::make_unique<engine::ui::UIPanel>(enemy_hp_bar_position);
+		enemy_hp_bars_[entity] = enemy_hp_bar_panel.get();
 
-		ui_manager_->add_element(std::move(enemy_hp_bar_border));
-		ui_manager_->add_element(std::move(enemy_hp_bar_content));
+		enemy_hp_bar_panel->add_child(std::make_unique<engine::ui::UIRounderBox>
+			(glm::dvec2{0,0}, size, color_border, 1));
+		enemy_hp_bar_panel->add_child(std::make_unique<engine::ui::UIRounderBox>
+			(glm::dvec2{ 0,0 }, size, color_content, 1));
+		ui_manager_->add_element(std::move(enemy_hp_bar_panel));
 	}
-	void GameScene::update_enemy_ui(Entity entity, const glm::dvec2& position, double process)
+	void GameScene::update_enemy_ui()
 	{
-		auto size = glm::dvec2{ width_enemy_hp_bar_*process , height_enemy_hp_bar_ };
-		auto enemy_hp_bar_position = position + glm::dvec2{ 0- width_enemy_hp_bar_/2,-24- height_enemy_hp_bar_ /2 };
-		enemy_hp_bars_[entity].second->set_size(size);
-		enemy_hp_bars_[entity].first->set_position(enemy_hp_bar_position);
-		enemy_hp_bars_[entity].second->set_position(enemy_hp_bar_position);
+		auto& coordinator = context_.get_coordinator();
+		for (auto& [entity, ptr] : enemy_hp_bars_)
+		{
+			auto& transform = coordinator.get_component<engine::component::TransformComponent>(entity);
+			auto enemy_hp_bar_position = transform.position + glm::dvec2{ 0- width_enemy_hp_bar_/2,-24- height_enemy_hp_bar_ /2 };
+			ptr->set_position(enemy_hp_bar_position);
+		}
 	}
 	void GameScene::create_tower_ui(int y,int x)
 	{
-		auto tower_panel = std::make_unique<engine::ui::UIPanel>();
-		tower_panel_ = tower_panel.get();
-		ui_manager_->add_element(std::move(tower_panel));
-
 		glm::dvec2 position
 		{
 			x * game::config::SIZE_TILE,
 			y * game::config::SIZE_TILE
 		}; 
+		auto tower_pos = position + glm::dvec2{ 24,24 };
 
+		auto tower_panel = std::make_unique<engine::ui::UIPanel>(ui_manager_->get_root_element()->get_position());
+		tower_panel_ = tower_panel.get();
+		ui_manager_->add_element(std::move(tower_panel));
+
+		//选择虚框
 		auto& resource_manager = context_.get_resource_manager();
 		auto texture = resource_manager.get_texture("ui_select_cursor");
 		auto size = resource_manager.get_texture_size(texture);
 		auto ui_select_cursor=std::make_unique<engine::ui::UIImage>(texture,position,size,SDL_Rect{ 0,0,size.x,size.y });
-		tower_panel_->add_child(std::move(ui_select_cursor));
-
+		
+		//轮盘选项
 		glm::dvec2 offset;
 		offset = { 0 ,-64 };
 		auto button_archer=std::make_unique<engine::ui::UIButton>(context_,"ui_place_archer_normal",
@@ -389,92 +440,96 @@ namespace game::scene
 		offset = { 55.4256, 32 };
 		auto button_gunner=std::make_unique<engine::ui::UIButton>(context_, "ui_place_gunner_normal",
 			"ui_place_gunner_hover", "ui_place_gunner_hover", position + offset);
-		
-		auto tower_pos = position + glm::dvec2{ 24,24 };
+
+		//防御塔范围
+		auto tower_range = std::make_unique<engine::ui::UIRound>(tower_pos, SDL_Color{ 0, 149, 217, 75 }, 0);
+		auto tower_range_ptr = tower_range.get();
+
+		//防御塔花费
+		auto coin_num = std::make_unique<engine::ui::UILabel>(context_.get_text_renderer(), "test","resources/font/ipix.ttf", 28, tower_pos + glm::dvec2{ -20,36 });
+		auto coin_num_ptr = coin_num.get();
+		tower_range->set_visible(false);
+		coin_num->set_visible(false);
+
 		auto& config = context_.get_config().config_.towers;
 		int cost = 0;
+		double range = 0;
+
 		cost = config["tower_archer"].cost;
+		range = config["tower_archer"].view_range[0];
 		button_archer->set_click(
 			[this,cost,y,x]()
 			{
-				tower_panel_->set_can_remove(true);
 				try_place_tower(y,x, cost, TowerType::Archer);
+				tower_panel_->set_can_remove(true);
+				tower_panel_ = nullptr;
 			});
 		button_archer->set_hover(
-			[this, tower_pos,&config]()
+			[this,tower_range_ptr,coin_num_ptr,cost,range]()
 			{
-				double range = config["tower_archer"].view_range[0];
-				int coin = config["tower_archer"].cost;
-				tower_panel_->add_child(std::make_unique<engine::ui::UILabel>(context_.get_text_renderer(),
-					std::to_string(coin),
-					"resources/font/ipix.ttf",
-					28, tower_pos + glm::dvec2{ -20,36 }));
-				tower_panel_->add_child(std::make_unique<engine::ui::UIRound>(tower_pos,SDL_Color{ 0, 149, 217, 75 },range));
+				tower_range_ptr->set_range(range);
+				coin_num_ptr->set_text(std::to_string(cost));
+				tower_range_ptr->set_visible(true);
+				coin_num_ptr->set_visible(true);
 			});
 		button_archer->set_unhover(
-			[this]()
+			[tower_range_ptr, coin_num_ptr]()
 			{
-				auto& v = tower_panel_->get_children();
-				for (int i = 4; i < v.size(); ++i)
-				{
-					v[i]->set_can_remove(true);
-				}
+				tower_range_ptr->set_visible(false);
+				coin_num_ptr->set_visible(false);
 			});
+
 		cost = config["tower_axeman"].cost;
+		range = config["tower_axeman"].view_range[0];
 		button_axeman->set_click(
 			[this,cost, y,x]()
 			{
-				tower_panel_->set_can_remove(true);
 				try_place_tower(y,x, cost, TowerType::Axeman);
+				tower_panel_->set_can_remove(true);
+				tower_panel_ = nullptr;
 			});
 		button_axeman->set_hover(
-			[this, tower_pos, &config]()
+			[this,tower_range_ptr, coin_num_ptr,cost,range]()
 			{
-				double range = config["tower_axeman"].view_range[0];
-				int coin= config["tower_axeman"].cost;
-				tower_panel_->add_child(std::make_unique<engine::ui::UILabel>(context_.get_text_renderer(),
-					std::to_string(coin),
-					"resources/font/ipix.ttf",
-					28,tower_pos+glm::dvec2{ -20,36 }));
-				tower_panel_->add_child(std::make_unique<engine::ui::UIRound>(tower_pos, SDL_Color{ 0, 149, 217, 75 }, range));
+				tower_range_ptr->set_range(range);
+				coin_num_ptr->set_text(std::to_string(cost));
+				tower_range_ptr->set_visible(true);
+				coin_num_ptr->set_visible(true);
 			});
 		button_axeman->set_unhover(
-			[this]()
+			[tower_range_ptr, coin_num_ptr]()
 			{
-				auto& v = tower_panel_->get_children();
-				for (int i = 4; i < v.size(); ++i)
-				{
-					v[i]->set_can_remove(true);
-				}
+				tower_range_ptr->set_visible(false);
+				coin_num_ptr->set_visible(false);
 			});
+
 		cost = config["tower_gunner"].cost;
+		range = config["tower_gunner"].view_range[0];
 		button_gunner->set_click(
 			[this,cost, y,x]()
 			{
-				tower_panel_->set_can_remove(true);
 				try_place_tower(y,x, cost, TowerType::Gunner);
+				tower_panel_->set_can_remove(true);
+				tower_panel_ = nullptr;
 			});
 		button_gunner->set_hover(
-			[this, tower_pos, &config]()
+			[this, tower_range_ptr, coin_num_ptr,cost,range]()
 			{
-				double range = config["tower_gunner"].view_range[0];
-				int coin = config["tower_gunner"].cost;
-				tower_panel_->add_child(std::make_unique<engine::ui::UILabel>(context_.get_text_renderer(),
-					std::to_string(coin),
-					"resources/font/ipix.ttf",
-					28, tower_pos + glm::dvec2{ -20,36 }));
-				tower_panel_->add_child(std::make_unique<engine::ui::UIRound>(tower_pos, SDL_Color{ 0, 149, 217, 75 }, range));
+				tower_range_ptr->set_range(range);
+				coin_num_ptr->set_text(std::to_string(cost));
+				tower_range_ptr->set_visible(true);
+				coin_num_ptr->set_visible(true);
 			});
 		button_gunner->set_unhover(
-			[this]()
+			[tower_range_ptr, coin_num_ptr]()
 			{
-				auto& v = tower_panel_->get_children();
-				for (int i = 4; i < v.size(); ++i)
-				{
-					v[i]->set_can_remove(true);
-				}
+				tower_range_ptr->set_visible(false);
+				coin_num_ptr->set_visible(false);
 			});
 
+		tower_panel_->add_child(std::move(tower_range));
+		tower_panel_->add_child(std::move(ui_select_cursor));
+		tower_panel_->add_child(std::move(coin_num));
 		tower_panel_->add_child(std::move(button_archer));
 		tower_panel_->add_child(std::move(button_axeman));
 		tower_panel_->add_child(std::move(button_gunner));

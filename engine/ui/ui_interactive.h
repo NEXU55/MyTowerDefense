@@ -26,7 +26,7 @@ namespace engine::ui
         engine::core::Context& context_;                        //可交互元素很可能需要其他引擎组件
         std::unique_ptr<engine::ui::UIState> state_;            //当前状态
         std::unordered_map<std::string, SDL_Texture*> textures_;//纹理集合
-        std::unordered_map<std::string, std::string> sounds_;   //音效集合，key为音效名称，value为音效文件路径
+        //std::unordered_map<std::string, std::string> sounds_;   //音效集合，key为音效名称，value为音效文件路径
         SDL_Texture* current_texture_ = nullptr;                //当前显示的纹理
         bool interactive_ = true;                               //是否可交互
 
@@ -50,6 +50,7 @@ namespace engine::ui
         bool isInteractive() const { return interactive_; }                     //获取是否可交互
 
         // --- 核心方法 ---
+        void update(double delta, Context& context)override;
         bool input(Context& context, const InputEvent& event) override;
         void render(Context& context) override;
     };

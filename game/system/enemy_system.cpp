@@ -10,7 +10,6 @@
 #include"../../engine/component/transform_component.h"
 #include"../../engine/component/speed_component.h"
 #include"../../engine/component/remove_component.h"
-#include"../../engine/component/health_component.h"
 
 #include"../component/name_component.h"
 #include"../component/enemy_component.h"
@@ -18,8 +17,6 @@
 #include"../../engine/event/change_hp_event.h"
 #include"../../engine/event/play_sound_event.h"
 #include"../event/enemy_enter_home_event.h"
-#include"../event/enemy_hp_event.h"
-#include"../event/reward_event.h"
 #include <glm/geometric.hpp>
 
 
@@ -45,8 +42,9 @@ namespace game::system
 		auto p=event_bus.subscribe<engine::event::ChangeHpEvent>(
 			[this, &coordinator, &event_bus](const engine::event::ChangeHpEvent& event)
 			{
-				if (entity_list_.count(event.entity)==0||event.change >= 0)
+				if (coordinator.has_component<game::component::EnemyComponent>(event.entity)==0||event.change >= 0)
 					return;
+
 				auto& name = coordinator.get_component<game::component::NameComponent>(event.entity);
 				auto& enemy = coordinator.get_component<EnemyComponent>(event.entity);
 				enemy.is_show_sketch = true;
@@ -63,28 +61,14 @@ namespace game::system
 	{
 		auto& coordinator = context.get_coordinator();
 		auto& event_bus = context.get_eventbus();
-		for (auto entity : entity_list_)
+		auto entity_list = coordinator.view(signature_);
+		for (auto entity : entity_list)
 		{
 			auto& animation = coordinator.get_component<AnimationComponent>(entity);
 			auto& physics = coordinator.get_component<PhysicsComponent>(entity);
 			auto& transform = coordinator.get_component<TransformComponent>(entity);
 			auto& speed = coordinator.get_component<SpeedComponent>(entity);
-			auto& health = coordinator.get_component<engine::component::HealthComponent>(entity);
-
 			auto& enemy = coordinator.get_component<EnemyComponent>(entity);
-			//向ui发送敌人血条信息
-			game::event::EnemyHpEvent enemy_hp_event;
-			enemy_hp_event.process = health.hp / health.hp_max;
-			enemy_hp_event.position = transform.position;
-			enemy_hp_event.entity = entity;
-			event_bus.publish(enemy_hp_event);
-
-			if (health.hp <= 0)
-			{
-				game::event::RewardEvent reward_event;
-				reward_event.reward = enemy.reward;
-				event_bus.publish(reward_event);
-			}
 
 			//当敌人越过目标地点时，纠正其位置
 			//当到达目标地点时切换目标地点

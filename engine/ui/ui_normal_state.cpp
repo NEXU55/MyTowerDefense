@@ -14,7 +14,7 @@ void UINormalState::enter()
     spdlog::debug("切换到正常状态");
 }
 
-std::unique_ptr<UIState> UINormalState::input(Context& context, const InputEvent& event)
+std::unique_ptr<UIState> UINormalState::update(Context& context)
 {
     auto& input_manager = context.get_input_manager();
     auto mouse_pos = input_manager.get_mouse_position();

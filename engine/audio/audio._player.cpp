@@ -36,8 +36,6 @@ int AudioPlayer::play_sound(std::string_view name, int channel) {
 
 bool AudioPlayer::play_music(std::string_view name, int loops, int fade_in_ms) 
 {
-    //if (name == current_music_) 
-        //return true;      // 如果当前音乐已经在播放，则不重复播放
     current_music_ = name;
     Mix_Music* music = resource_manager_->get_music(name); // 通过 ResourceManager 获取资源
     if (!music) {
@@ -54,7 +52,7 @@ bool AudioPlayer::play_music(std::string_view name, int loops, int fade_in_ms)
          result = Mix_PlayMusic(music, loops);
     }
 
-    if (!result) {
+    if (result!=0) {
         spdlog::error("AudioPlayer: 无法播放音乐 '{}': {}", name, SDL_GetError());
     } else {
         spdlog::trace("AudioPlayer: 播放音乐 '{}'。", name);

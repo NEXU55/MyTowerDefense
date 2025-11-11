@@ -21,30 +21,24 @@ namespace engine::system
 		using  CollisionComponent = engine::component::CollisionComponent;
 		using  CollisionBoxType = engine::collision::CollisionBoxType;
 		using  CollisionEvent = engine::event::CollisionEvent;
+	private:
+		bool model = true;
 	public:
 		void init(Context& context)override;
 		void update(double, Context&)override;
 	private:
-		bool is_collide(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b)const;
+		bool is_collide(const CollisionComponent& a, const CollisionComponent& b)const;
 
-		bool check_rec_rec(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b)const;
-		bool check_cir_cir(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b)const;
-		bool check_rec_cir(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b)const
+		bool check_rec_rec(const CollisionComponent& a, const CollisionComponent& b)const;
+		bool check_cir_cir(const CollisionComponent& a, const CollisionComponent& b)const;
+		bool check_rec_cir(const CollisionComponent& a, const CollisionComponent& b)const
 		{
-			return check_cir_rec(b, a, pos_b, pos_a);
+			return check_cir_rec(b, a);
 		}
-		bool check_cir_rec(const CollisionComponent& a, const CollisionComponent& b, const glm::dvec2& pos_a, const glm::dvec2& pos_b)const;
+		bool check_cir_rec(const CollisionComponent& a, const CollisionComponent& b)const;
 		
-		bool checkCircleRectangleCollision(
-			double circleX, double circleY, double radius,
-			double rectX, double rectY, double rectWidth, double rectHeight)const
+		bool checkCircleRectangleCollision(double circleX, double circleY, double radius,double rectLeft,double rectRight,double rectTop,double rectBottom)const
 		{
-			// 计算矩形的边界坐标（假设rectX, rectY是矩形左上角坐标）
-			double rectLeft = rectX;
-			double rectRight = rectX + rectWidth;
-			double rectTop = rectY;
-			double rectBottom = rectY + rectHeight;
-
 			// 找到矩形上距离圆心最近的点
 			double closestX = std::fmax(rectLeft, std::fmin(circleX, rectRight));
 			double closestY = std::fmax(rectTop, std::fmin(circleY, rectBottom));

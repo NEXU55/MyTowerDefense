@@ -8,22 +8,22 @@ namespace engine::component
 {
     struct SpriteComponent
     {
-        enum class SpriteLayer
+        enum class SpriteLayer                  //渲染层级
         {
-            Tile=0,
-            Object,
-            Player,
-            Effect,
+            Tile=0,                             //瓦片层
+            Object,                             //物品层
+            Player,                             //角色层
+            Effect,                             //特效层
             None
         };
 
         enum class AnchorMode
         {
-            NONE=0,           // 不指定对齐方式，偏移量通常为 (0,0) 或手动设置
-            TOP_LEFT,       // 左上角
-            TOP_CENTER,     // 顶部中心
-            CENTER,         // 正中心 (几何中心)
-            BOTTOM_CENTER,  // 底部中心
+            NONE=0,                             // 不指定对齐方式，偏移量通常为 (0,0) 或手动设置
+            TOP_LEFT,                           // 左上角
+            TOP_CENTER,                         // 顶部中心
+            CENTER,                             // 正中心 (几何中心)
+            BOTTOM_CENTER,                      // 底部中心
         };
 
         SDL_Texture* texture=nullptr;           //纹理资源

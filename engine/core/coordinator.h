@@ -20,7 +20,6 @@ namespace engine::core
 		{
 			component_manager_.clear();
 			entity_manager_.clear();
-			system_manager_.clear();
 		}
 
 		//Entity
@@ -32,7 +31,6 @@ namespace engine::core
 		void destory_entity(Entity entity)
 		{
 			component_manager_.destroy_entity(entity,entity_manager_.get_signature(entity));
-			system_manager_.destroy_entity(entity);
 			entity_manager_.destroy_entity(entity);
 			spdlog::trace("删除实体，ID：{}", entity);
 		}
@@ -41,6 +39,40 @@ namespace engine::core
 		{
 			return entity_manager_.is_entity_valid(entity);
 		}
+
+		template<class ...Args>
+		std::vector<Entity> view()
+		{
+			Signature signature;
+			((signature = signature | get_signature<Args>()),...);
+			size_t index = 0;
+			for (int i = 0, size= MAX_ENTITY ; i < MAX_COMPONENT; ++i)
+			{
+				if (signature[i] == 0||size <= component_manager_.get_component_size_by_index(i))
+					continue;
+				size = component_manager_.get_component_size_by_index(i);
+				index = i;
+			}
+			std::vector<Entity> ret= component_manager_.get_entity_array_by_index(index);
+			std::erase_if(ret, [this, &signature](Entity entity) {return (entity_manager_.get_signature(entity) & signature) == 0; });
+			return ret;
+		}
+
+		std::vector<Entity> view(Signature signature)
+		{
+			size_t index = 0;
+			for (int i = 0, size = MAX_ENTITY; i < MAX_COMPONENT; ++i)
+			{
+				if (signature[i] == 0 || size <= component_manager_.get_component_size_by_index(i))
+					continue;
+				size = component_manager_.get_component_size_by_index(i);
+				index = i;
+			}
+			std::vector<Entity> ret = component_manager_.get_entity_array_by_index(index);
+			std::erase_if(ret, [this,&signature](Entity entity) {return (entity_manager_.get_signature(entity) & signature) == 0; });
+			return ret;
+		}
+
 		//Component
 		template<class T>
 		void register_component(std::uint32_t capacity=MAX_ENTITY)
@@ -61,7 +93,6 @@ namespace engine::core
 			signature.set(component_manager_.get_component_type<T>(), true);
 			component_manager_.add_component(entity, component);
 			entity_manager_.set_signautre(entity,signature);
-			system_manager_.insert_entity(entity,signature);
 		}
 
 		template<class T>
@@ -71,7 +102,6 @@ namespace engine::core
 			signature.set(component_manager_.get_component_type<T>(), false);
 			component_manager_.remove_component<T>(entity);
 			entity_manager_.set_signautre(signature);
-			system_manager_.erase_entity(entity, signature);
 		}
 
 		template<class T>
@@ -102,6 +132,12 @@ namespace engine::core
 		bool has_component(Entity entity)
 		{
 			return is_entity_valid(entity) && entity_manager_.get_signature(entity)[get_component_type<T>()];
+		}
+
+		template<class T>
+		engine::component::ComponentArray<T>* get_component_array()
+		{
+			return component_manager_.get_component_array<T>();
 		}
 		//System
 		template<class T>

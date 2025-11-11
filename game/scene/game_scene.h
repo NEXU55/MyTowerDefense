@@ -13,6 +13,8 @@ namespace engine::system
 	class RemoveSystem;
 	class RotateSystem;
 	class EffectSystem;
+	class PhysicsSystem;
+	class CollisionSystem;
 }
 namespace engine::ui
 {
@@ -53,6 +55,8 @@ namespace game::scene
 		using RotateSystem = engine::system::RotateSystem;
 		using EffectSystem = engine::system::EffectSystem;
 		using PlayerSystem = game::system::PlayerSystem;
+		using PhysicsSystem = engine::system::PhysicsSystem;
+		using CollisionSystem = engine::system::CollisionSystem;
 
 		struct SDLTextureDeleter
 		{
@@ -78,9 +82,10 @@ namespace game::scene
 		
 		engine::ui::UIPanel* tower_panel_ = nullptr;				//放置防御塔轮盘ui，用于放置防御塔
 		engine::ui::UILabel* coin_label_ = nullptr;					//金币数量ui，用于更新金币数量
+		engine::ui::UILabel* fps_label_ = nullptr;			
+		engine::ui::UILabel* enemy_label_ = nullptr;
 
-																	//敌人血量条ui,用于更新敌人血量
-		std::unordered_map<Entity, std::pair<engine::ui::UIRounderBox*,engine::ui::UIRounderBox*>> enemy_hp_bars_;
+		std::unordered_map<Entity,engine::ui::UIPanel*> enemy_hp_bars_;//敌人血量条ui,用于更新敌人血量
 
 		//运行时
 		std::unique_ptr<SDL_Texture, SDLTextureDeleter>  texture_map_;	//地图纹理
@@ -97,6 +102,11 @@ namespace game::scene
 		FireSystem* fire_system_ = nullptr;
 		EffectSystem* effect_system_ = nullptr;
 		PlayerSystem* player_system_ = nullptr;
+		PhysicsSystem* physics_system_ = nullptr;
+		CollisionSystem* collision_system_ = nullptr;
+
+		int fps_ = 0;
+		double second_ = 0;
 	public:
 		GameScene(Context&);
 		~GameScene()override;
@@ -113,13 +123,15 @@ namespace game::scene
 		void create_health_ui();
 		void create_coin_ui();
 		void create_player_ui();
+		void create_fps_ui();
 
 		void update_coin_ui();
 		void update_health_ui();
 		void update_status_bar_ui();
+		void update_fps_ui(double);
 
 		void create_enemy_ui(Entity entity,const glm::dvec2& position);
-		void update_enemy_ui(Entity entity, const glm::dvec2& position, double process);
+		void update_enemy_ui();
 
 		void create_tower_ui(int y,int x);
 

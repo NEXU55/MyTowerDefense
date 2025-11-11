@@ -20,6 +20,7 @@ public:
 private:
     void enter() override;
     void exit() override;
-    std::unique_ptr<UIState> input(Context& context, const InputEvent& event) override;
+    std::unique_ptr<UIState> update(Context& context) override;
+    std::unique_ptr<UIState> input(Context& context, const InputEvent& event)override;
 };
 }

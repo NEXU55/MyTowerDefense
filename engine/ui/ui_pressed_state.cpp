@@ -14,12 +14,18 @@ void UIPressedState::enter()
     spdlog::debug("切换到按下状态");
 }
 
+std::unique_ptr<UIState> UIPressedState::update(Context& context)
+{
+    return nullptr;
+}
+
 std::unique_ptr<UIState> UIPressedState::input(Context& context, const InputEvent& event)
 {
-    auto& input_manager = context.get_input_manager();
-    auto mouse_pos = input_manager.get_mouse_position();
+    
     if (event.message=="MouseLeftClick") 
     {
+        auto& input_manager = context.get_input_manager();
+        auto mouse_pos = input_manager.get_mouse_position();
         if (!owner_->is_point_inside(mouse_pos)) 
         {        
             // 松开鼠标时，如果不在UI元素内，则切换到正常状态

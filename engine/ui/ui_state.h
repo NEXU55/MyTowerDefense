@@ -45,6 +45,7 @@ namespace engine::ui
         // --- 核心方法 --- 
         virtual void enter() {}
         virtual void exit() {}
+        virtual std::unique_ptr<UIState> update(Context& context) = 0;
         virtual std::unique_ptr<UIState> input(Context& context,const InputEvent& event) = 0;
     };
 }

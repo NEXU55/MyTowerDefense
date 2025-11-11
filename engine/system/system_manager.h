@@ -50,41 +50,5 @@ namespace engine::system
 			}
 			return it->second->get_signature();
 		}
-
-		void destroy_entity(Entity entity)
-		{
-			for (auto& pair : system_array_)
-			{
-				pair.second->erase(entity);
-			}
-		}
-
-		void insert_entity(Entity entity,Signature signature)
-		{
-			for (auto& it: system_array_)
-			{
-				auto system_signature = it.second->get_signature();
-				if ((system_signature & signature) == system_signature)
-					it.second->insert(entity);
-			}
-		}
-
-		void erase_entity(Entity entity, Signature signature)
-		{
-			for (auto& it : system_array_)
-			{
-				auto system_signature = it.second->get_signature();
-				if ((system_signature & signature) != system_signature)
-					it.second->erase(entity);
-			}
-		}
-
-		void clear()
-		{
-			for (auto& [type_index, system] : system_array_)
-			{
-				system->clear();
-			}
-		}
 	};
 }
